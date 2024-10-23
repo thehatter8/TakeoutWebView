@@ -1,7 +1,6 @@
 # TakeoutWebView
-Uses Google Takeout data to generate a webmap of visited locations
+Uses Google Takeout data to generate a webmap of visited locations using Leaflet.js, Flask, Python3, OpenStreetMap and whatever else I forgot to mention
 
-# Leaflet.js, Flask, Python3, OpenStreetMap
 
 # Building - under construction
 * basically, put the files somewhere and add an uploads folder
