@@ -1,0 +1,160 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoogle Maps</title>
+    
+    <link rel="stylesheet" href="//unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+        }
+
+        .map-container {
+            position: fixed;
+            top: 5vh;
+            left: 5vw;
+            right: 5vw;
+            bottom: 5vh;
+            background: #f0f0f0;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .upload-controls {
+            position: fixed;
+            top: 20px;
+            right: 7vw;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .upload-controls input[type="file"] {
+            display: none;
+        }
+
+        .upload-button {
+            background: #4CAF50;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .upload-button:hover {
+            background: #45a049;
+        }
+
+        #upload-status {
+            margin-top: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Upload controls -->
+    <div class="upload-controls">
+        <input type="file" id="file-input" accept=".csv,.json">
+        <button class="upload-button" onclick="document.getElementById('file-input').click()">
+            Choose File
+        </button>
+        <div id="upload-status"></div>
+    </div>
+
+    <!-- Map container -->
+    <div class="map-container">
+        <div id="map"></div>
+    </div>
+    
+    <script src="//unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    
+    <script>
+        // Initialize map
+        var map = L.map('map').setView([40.038, -100.54], 4);
+        var markers = L.layerGroup().addTo(map);
+        
+        L.tileLayer('//tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        setTimeout(function() {
+            map.invalidateSize();
+        }, 100);
+
+        // File upload handling
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const statusDiv = document.getElementById('upload-status');
+            statusDiv.textContent = 'Uploading...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                handleUploadResponse(data);
+                statusDiv.textContent = `Upload successful! Added ${data.latlong_data.length} markers`;
+            })
+            .catch(error => {
+                statusDiv.textContent = 'Upload failed: ' + error.message;
+                console.error('Error:', error);
+            });
+        });
+
+        function handleUploadResponse(data) {
+            // Clear existing markers
+            markers.clearLayers();
+            //console.log("Response data: ",data);
+            // Handle the latlong_data (common to both CSV and JSON)
+            if (data.latlong_data && data.latlong_data.length > 0) {
+                const bounds = L.latLngBounds();  // Create bounds object to fit all markers
+                
+                // Add markers for each coordinate pair
+                data.latlong_data.forEach(coord => {
+                    const [lat, lng] = coord;
+                    const marker = L.marker([lat, lng]);
+                    markers.addLayer(marker);
+                    bounds.extend([lat, lng]);  // Extend bounds to include this marker
+                });
+                
+                // Fit map to show all markers with some padding
+                map.fitBounds(bounds, {
+                    padding: [50, 50],  // Add 50px padding around the bounds
+                    maxZoom: 15  // Prevent excessive zoom when viewing single marker
+                });
+            }
+
+            // Handle any error status
+            if (data.status && data.status.includes("Invalid")) {
+                document.getElementById('upload-status').textContent = data.status;
+            }
+        }
+    </script>
+</body>
+</html>
